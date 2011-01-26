@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Genre list</title>
+
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+		<link href="style.css" rel="stylesheet" type="text/css" />
+
+		<script type="text/javascript">
+			function showGenre(genre) {
+				document.getElementById(genre).style.display = 'none';
+			}
+		</script>
+	</head>
+
+	<body onload="showGenre($genres.keys()[0])">
+		<h1>Album list</h1>
+
+		<h2>Genres</h2>
+		<ul>
+			#for $genre in sorted($genres.keys())
+				<li><a href="#$genre">$genre</a></li>	
+			#end for
+		</ul>
+
+		<h2>Albums</h2>
+        #for $genre in $genres_sorted
+		<h3 style="clear: left;" id="$genre">$genre</h3>
+		#for $artist in sorted($genres[$genre].keys())
+		#for $album in $genres[$genre][$artist]
+			<div style="clear: left; display: none">
+				<img src="$album.cover" width="128" height="128" style="clear: left; margin: 4px;" />
+                $artist &#151; $album.name
+			</div>
+		#end for
+        #end for
+		</div>
+		#end for
+	</body>
+</html>
