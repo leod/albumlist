@@ -44,6 +44,7 @@ def get_tagger(fname):
 		return mutagen.oggvorbis.OggVorbis(fname)
 
 def extract_cover(fname, to):
+	if os.path.exists(to + ".jpg"): return (True, to + ".jpg")
 	if not fname.endswith(".mp3"): return (False, "")
 
 	f = mutagen.id3.ID3(fname);
@@ -110,8 +111,33 @@ def tag_all(songs, network, subdir, translate, whitelist, min_weight):
 		tagger["genre"] = tags
 		tagger.save()
 
-def create_genre_list(songs, directory, subdir=None, extract_covers=False):
-	genres = {}
+def clean_name(name):
+	def f(c):
+		if c.isalnum():
+			return c
+		else:
+			return "_"
+	return "".join(map(f, name))
+
+class Genre(object):
+	name = None
+	clean_name = None
+	artists = {}
+
+class Artist(object):
+	name = None
+	genre_names = []
+	genres = []
+	albums = {}
+
+class Album(object):
+	artst = None
+	name = None
+	cover_filename = None
+	songs = []
+
+def create_artist_list(songs, directory, subdir=None, extract_covers=False):
+	artists = {}
 
 	for song in songs:
 		if not ("genre" in song and "artist" in song and "title" in song and "album" in song):
@@ -120,40 +146,89 @@ def create_genre_list(songs, directory, subdir=None, extract_covers=False):
 		if not is_in_sub(subdir, song["file"]):
 			continue
 
-		artist = get_artist(song)
-
 		if isinstance(song["genre"], str):
 			song["genre"] = [song["genre"]]
 
-		for genre in song["genre"]:
-			if not genre in genres:
-				genres[genre] = {}	
-			if not artist in genres[genre]:
-				genres[genre][artist] = []
-			if not song["album"] in genres[genre][artist]:
-				album = {}
-				album["name"] = song["album"]
-				cover_name = "cover/" + string.replace(string.replace(string.lower(song["artist"] + "_" + song["album"]), " ", "_"), "/", "_slash_")
+		artist_name = get_artist(song)
+		artist = None
+
+		if not artist_name in artists:
+			artist = Artist()
+			artist.name = artist_name
+			artist.genre_names = song["genre"];
+			artist.albums = {}
+
+			artists[artist_name] = artist
+		else:
+			artist = artists[artist_name]
+
+		album_name = song["album"]
+		album = None
+
+		if not album_name in artist.albums:
+			album = Album()
+			album.artist = artist
+			album.name = album_name
+			
+			if extract_covers:
+				cover_name = "cover/" + clean_name(artist_name + "_" + album_name)
 				(success, fname) = extract_cover(directory + song["file"], cover_name)
-				if success:
-					album["cover"] = fname
-				genres[genre][artist].append(album)
+				album.cover_filename = fname
+		else:
+			album = artist.albums[album_name]
+
+		album.songs.append(song)	
+
+		artist.albums[album_name] = album
+
+	return artists
+
+def create_genre_list(artists):
+	genres = {}
+	
+	for artist in artists.values():
+		artist.genres = []
+		for genre_name in artist.genre_names:
+			genre = None
+
+			if not genre_name in genres:
+				genre = Genre()
+				genre.name = genre_name
+				genre.artists = {}
+				genre.clean_name = clean_name(genre_name).lower()
+
+				genres[genre_name] = genre
+			else:
+				genre = genres[genre_name]
+
+			genre.artists[artist.name] = artist
+			artist.genres.append(genre)
+		assert len(artist.genre_names) == len(artist.genres)
 
 	return genres
 
 def write_html(genres):
 	template = Template(file="html.tmpl")
-	template.genres = genres
-	template.genres_sorted = sorted(genres.keys())
-	
-	print template	
 
+	for genre in genres.values():
+		print "Writing " + genre.clean_name
+
+		template.genres = genres
+		template.this_genre = genre
+
+		out = open("html/" + genre.clean_name + ".html", "w")
+		out.write(str(template))
+		out.close()
+		
 network = pylast.LastFMNetwork(api_key = API_KEY, api_secret = API_SECRET)
 
 mpd = mpd.MPDClient()
 mpd.connect("127.0.0.1", 6600)
 songs = mpd.listallinfo()
 
-write_html(create_genre_list(songs, DIRECTORY, SUB_DIRECTORY))
+artists = create_artist_list(songs, DIRECTORY, SUB_DIRECTORY, True)
+genres = create_genre_list(artists)
+
+write_html(genres)
 
 #tag_all(songs, network, subdir=SUB_DIRECTORY, translate=TRANSLATE_TAGS, whitelist=TAG_WHITELIST, min_weight=TAG_MIN_WEIGHT)
