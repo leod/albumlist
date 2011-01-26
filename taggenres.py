@@ -62,7 +62,9 @@ def extract_cover(fname, to):
 			myfile.write(frame.data)
 			myfile.close()
 
-	return (True, to)
+		return (True, to)
+
+	return (False, "")
 
 def tag_all(songs, network, subdir, translate, whitelist, min_weight):
 	tagcache = {}
@@ -123,6 +125,7 @@ class Genre(object):
 	name = None
 	clean_name = None
 	artists = {}
+	num_albums = 0
 
 class Artist(object):
 	name = None
@@ -135,6 +138,7 @@ class Album(object):
 	name = None
 	cover_filename = None
 	songs = []
+	is_important = False
 
 def create_artist_list(songs, directory, subdir=None, extract_covers=False):
 	artists = {}
@@ -173,7 +177,10 @@ def create_artist_list(songs, directory, subdir=None, extract_covers=False):
 			if extract_covers:
 				cover_name = "cover/" + clean_name(artist_name + "_" + album_name)
 				(success, fname) = extract_cover(directory + song["file"], cover_name)
-				album.cover_filename = fname
+				if success:
+					album.cover_filename = fname
+				else:
+					album.cover_filename = "cover/no_cover-large.jpg"
 		else:
 			album = artist.albums[album_name]
 
@@ -185,9 +192,12 @@ def create_artist_list(songs, directory, subdir=None, extract_covers=False):
 
 def create_genre_list(artists):
 	genres = {}
+	num_albums = 0
 	
 	for artist in artists.values():
 		artist.genres = []
+		num_albums += len(artist.albums)
+
 		for genre_name in artist.genre_names:
 			genre = None
 
@@ -196,14 +206,23 @@ def create_genre_list(artists):
 				genre.name = genre_name
 				genre.artists = {}
 				genre.clean_name = clean_name(genre_name).lower()
+				genre.num_albums = 0
+				genre.is_important = False
 
 				genres[genre_name] = genre
 			else:
 				genre = genres[genre_name]
 
+			genre.num_albums += len(artist.albums)
+
 			genre.artists[artist.name] = artist
 			artist.genres.append(genre)
 		assert len(artist.genre_names) == len(artist.genres)
+
+	for genre in genres.values():
+		print genre.num_albums / num_albums
+		if genre.num_albums / float(num_albums) > 0.04:
+			genre.is_important = True
 
 	return genres
 
