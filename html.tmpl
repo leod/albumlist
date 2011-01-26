@@ -1,40 +1,31 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>Genre list</title>
+		<title>Album list: $this_genre.name</title>
 
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 		<link href="style.css" rel="stylesheet" type="text/css" />
-
-		<script type="text/javascript">
-			function showGenre(genre) {
-				document.getElementById(genre).style.display = 'none';
-			}
-		</script>
 	</head>
 
-	<body onload="showGenre($genres.keys()[0])">
+	<body>
 		<h1>Album list</h1>
 
 		<h2>Genres</h2>
 		<ul>
 			#for $genre in sorted($genres.keys())
-				<li><a href="#$genre">$genre</a></li>	
+				<li><a href="$genres[$genre].clean_name#echo '.html'#">$genre</a></li>	
 			#end for
 		</ul>
 
-		<h2>Albums</h2>
-        #for $genre in $genres_sorted
-		<h3 style="clear: left;" id="$genre">$genre</h3>
-		#for $artist in sorted($genres[$genre].keys())
-		#for $album in $genres[$genre][$artist]
-			<div style="clear: left; display: none">
-				<img src="$album.cover" width="128" height="128" style="clear: left; margin: 4px;" />
+		<h2>$this_genre.name</h2>
+		#for $artist in sorted($this_genre.artists.keys())
+		#for $album in $this_genre.artists[artist].albums.values()
+			<div style="clear: left;">
+				<img src="../$album.cover_filename" width="128" height="128" style="clear: left; margin: 4px;" />
                 $artist &#151; $album.name
 			</div>
 		#end for
         #end for
 		</div>
-		#end for
 	</body>
 </html>
