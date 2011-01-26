@@ -4,24 +4,32 @@
 		<title>Album list: $this_genre.name</title>
 
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-		<link href="style.css" rel="stylesheet" type="text/css" />
+		<link href="../style.css" rel="stylesheet" type="text/css" />
 	</head>
 
 	<body>
 		<h1>Album list</h1>
 
 		<h2>Genres</h2>
-		<ul>
+		<ul id="genres">
 			#for $genre in sorted($genres.keys())
-				<li><a href="$genres[$genre].clean_name#echo '.html'#">$genre</a></li>	
+				<li>
+					#if $genres[$genre].is_important
+						<strong>
+					#end if
+					<a href="$genres[$genre].clean_name#echo '.html'#\#start">$genre (#echo $genres[$genre].num_albums# albums)</a>
+					#if $genres[$genre].is_important
+						</strong>
+					#end if
+				</li>
 			#end for
 		</ul>
 
-		<h2>$this_genre.name</h2>
+		<h2 id="start">$this_genre.name</h2>
 		#for $artist in sorted($this_genre.artists.keys())
 		#for $album in $this_genre.artists[artist].albums.values()
-			<div style="clear: left;">
-				<img src="../$album.cover_filename" width="128" height="128" style="clear: left; margin: 4px;" />
+			<div class="album">
+				<img src="../$album.cover_filename" width="128" height="128" style="clear: left; margin: 4px; float: left;" />
                 $artist &#151; $album.name
 			</div>
 		#end for
