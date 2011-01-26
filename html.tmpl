@@ -5,6 +5,40 @@
 
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 		<link href="../style.css" rel="stylesheet" type="text/css" />
+
+		<script type="text/javascript" src="../jquery-1.4.4.min.js"></script> 
+		<script type="text/javascript">
+		#raw
+	
+			function sortByDate() {
+				var albumcontainer = $('#albums');	
+				var albums = albumcontainer.children('div.album').get();
+
+				function readDate(x) {
+					var s = $.trim($(x).find("p.releasedate").text());
+
+					var numDashes = 2;
+					for (var i = 0; i < s.length; ++i)
+						if (s[i] == '-') --numDashes;
+
+					for (var i = 0; i < numDashes; ++i)
+						s += " 01";
+
+					return new Date(s.replace(/-/g, ' '));
+				}
+
+				albums.sort(function(a, b) {
+					var dateA = readDate(a);
+					var dateB = readDate(b);
+
+					return dateA - dateB;
+				});
+
+				$.each(albums, function(idx, item) { albumcontainer.append(item); });
+			}
+			
+		#end raw
+		</script>
 	</head>
 
 	<body>
@@ -26,7 +60,9 @@
 		</ul>
 
 		<h2 id="start">$this_genre.name ($this_genre.num_albums albums)</h2>
-		<p style="margin: 20px;">Sort by <a href="javascript:sortByName()">name</a>, <a href="javascript:sortByDate()">release date</a>, <a href="javascript:sortByLastFm()">popularity on last.fm</a>.</p>
+		<p style="margin: 20px;">Sort by <a href="javascript:sortByName();">name</a>, <a href="javascript:sortByDate()">release date</a>, <a href="javascript:sortByLastFm()">popularity on last.fm</a>.</p>
+
+		<div id="albums">
 		#for $artist in sorted($this_genre.artists.keys())
 		#for $album in $this_genre.artists[artist].albums.values()
 			<div class="album">
