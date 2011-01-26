@@ -10,6 +10,23 @@ div.album {
 	border: 1px solid #E3F0F2;
 }
 
+div.album hr {
+	display: block;
+	clear: left;
+	margin: -0.66em 0;
+	visibility: hidden;
+}
+
+div.album img {
+	border 1px solid #E3F0F2;
+	margin-right: 20px;
+	float: left;
+}
+
+p.releasedate {
+	display: none;
+}
+
 a {
 	color: #006D92;
 	text-decoration: none;

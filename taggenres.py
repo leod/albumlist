@@ -138,6 +138,7 @@ class Album(object):
 	name = None
 	cover_filename = None
 	songs = []
+	date = ""
 	is_important = False
 
 def create_artist_list(songs, directory, subdir=None, extract_covers=False):
@@ -173,6 +174,10 @@ def create_artist_list(songs, directory, subdir=None, extract_covers=False):
 			album = Album()
 			album.artist = artist
 			album.name = album_name
+			album.date = ""
+
+			if "date" in song:
+				album.date = song["date"]
 			
 			if extract_covers:
 				cover_name = "cover/" + clean_name(artist_name + "_" + album_name)

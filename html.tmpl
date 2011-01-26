@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>Album list: $this_genre.name</title>
+		<title>Albums: $this_genre.name</title>
 
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 		<link href="../style.css" rel="stylesheet" type="text/css" />
 	</head>
 
 	<body>
-		<h1>Album list</h1>
+		<h1>Albums</h1>
 
 		<h2>Genres</h2>
 		<ul id="genres">
@@ -25,12 +25,19 @@
 			#end for
 		</ul>
 
-		<h2 id="start">$this_genre.name</h2>
+		<h2 id="start">$this_genre.name ($this_genre.num_albums albums)</h2>
+		<p style="margin: 20px;">Sort by <a href="javascript:sortByName()">name</a>, <a href="javascript:sortByDate()">release date</a>, <a href="javascript:sortByLastFm()">popularity on last.fm</a>.</p>
 		#for $artist in sorted($this_genre.artists.keys())
 		#for $album in $this_genre.artists[artist].albums.values()
 			<div class="album">
-				<img src="../$album.cover_filename" width="128" height="128" style="clear: left; margin: 4px; float: left;" />
-                $artist &#151; $album.name
+				<img src="../$album.cover_filename" width="128" height="128" />
+                <p>$artist &#151; $album.name #if $album.date != ""#[$album.date]#end if#</p>
+				<small>
+					#set $sep = ''
+					[#for $genre in $album.artist.genres#$sep<a href="$genre.clean_name#echo '.html'#\#start">$genre.name</a>#set $sep = ', '##end for#]
+				</small>
+				<hr />
+				<p class="releasedate">$album.date</a>
 			</div>
 		#end for
         #end for
