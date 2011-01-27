@@ -5,6 +5,7 @@ import pprint
 import string
 import pickle
 import math
+import re
 
 import pylast
 import sqlite3
@@ -24,6 +25,26 @@ def uniq(list):
 	set = {}
 	return [set.setdefault(x, x) for x in list if x not in set]
 
+def levenshtein(a,b):
+    "Calculates the Levenshtein distance between a and b."
+    n, m = len(a), len(b)
+    if n > m:
+        # Make sure n <= m, to use O(min(n,m)) space
+        a,b = b,a
+        n,m = m,n
+        
+    current = range(n+1)
+    for i in range(1,m+1):
+        previous, current = current, [i]+[0]*n
+        for j in range(1,n+1):
+            add, delete = previous[j]+1, current[j-1]+1
+            change = previous[j-1]
+            if a[j-1] != b[i-1]:
+                change = change + 1
+            current[j] = min(add, delete, change)
+            
+    return current[n]
+
 def is_in_sub(subdir, fname):
 	return subdir == None or string.split(fname, "/")[0] == subdir
 
@@ -33,7 +54,7 @@ def get_artist(song):
 	except KeyError:
 		artist = song["artist"]
 
-	return artist
+	return unicode(artist, "utf-8")
 
 def get_tagger(fname):
 	if fname.endswith(".mp3"):
@@ -146,6 +167,7 @@ class Album(object):
 	songs = []
 	date = ""
 	is_important = False
+	scrobbles = 0
 
 def create_artist_list(songs, directory, subdir=None, extract_covers=False):
 	artists = {}
@@ -173,7 +195,7 @@ def create_artist_list(songs, directory, subdir=None, extract_covers=False):
 		else:
 			artist = artists[artist_name]
 
-		album_name = song["album"]
+		album_name = unicode(song["album"], "utf-8")
 		album = None
 
 		if not album_name in artist.albums:
@@ -181,12 +203,13 @@ def create_artist_list(songs, directory, subdir=None, extract_covers=False):
 			album.artist = artist
 			album.name = album_name
 			album.date = ""
+			album.scrobbles = 0
 
 			if "date" in song:
 				album.date = song["date"]
 			
 			if extract_covers:
-				cover_name = "cover/" + clean_name(artist_name + "_" + album_name)
+				cover_name = "cover/" + clean_name(artist.name + "_" + album_name)
 				(success, fname) = extract_cover(directory + song["file"], cover_name)
 				if success:
 					album.cover_filename = fname
@@ -238,7 +261,6 @@ def create_genre_list(artists):
 	max_albums = reduce(lambda x, y: max(x, y), map(lambda g: g.num_albums, genres.values()))
 	min_albums = reduce(lambda x, y: min(x, y), map(lambda g: g.num_albums, genres.values()))
 
-	print max_albums
 	for genre in genres.values():
 		weight = (math.log(genre.num_albums) - math.log(min_albums)) / (math.log(max_albums) - math.log(min_albums))
 		genre.weight = int(9 * weight)
@@ -250,7 +272,7 @@ def write_html(genres):
 	template = Template(file="html.tmpl")
 
 	for genre in genres.values():
-		print "Writing " + genre.clean_name
+		#print "Writing " + genre.clean_name
 
 		template.genres = genres
 		template.this_genre = genre
@@ -262,18 +284,102 @@ def write_html(genres):
 def fetch_stats(artists, network):
 	library = pylast.Library(USER, network)
 
-	lower_artists = dict(zip(map(string.lower, artists.keys()), artists.values()))
+	lower_artists = dict(zip(map(lambda s: s.lower(), artists.keys()), artists.values()))
 
-	print "Loading scrobbles..."
+	print "Loading album scrobbles..."
+	fm_albums = library.get_albums(limit=2000)
+	print "Done. Loaded " + str(len(fm_albums)) + " albums."
+
+	num_notfound = 0
+	for fm_album in fm_albums:
+		try:
+			fm_artist_name = fm_album.item.get_artist().get_name().lower()
+			artist = None
+			try:
+				artist = lower_artists[fm_artist_name]
+			except KeyError:
+				try:
+					artist = lower_artists[fm_artist_name.replace("&", "and")]
+				except KeyError:
+					try:
+						artist = lower_artists[fm_artist_name.replace("+", "and")]
+					except KeyError:
+						try:
+							artist = lower_artists[ARTIST_NAME_FIXES[fm_artist_name].lower()]
+						except KeyError:
+							artist = lower_artists[fm_artist_name.replace("and", "&")]
+
+			def try_find(artist, name, f=None):
+				if f == None: f = lambda x: x
+				name = name.lower().strip()
+				for album_name, album in artist.albums.items():
+					if f(album_name).lower() == name:
+						return album
+
+			name = fm_album.item.get_name()
+			local_album = try_find(artist, name)
+
+			def remove_brackets(s):
+				return re.sub('\[.*?\]', '', s)
+			def remove_parens(s):
+				return re.sub('\(.*?\)', '', s)
+			def remove_colon_and_following(s):
+				return re.sub(':.*$', '', s)
+
+			if local_album == None:
+				try:
+					name = ALBUM_NAME_FIXES[fm_album.item.get_artist().get_name().lower()][name.lower()]
+					local_album = try_find(artist, name)
+				except KeyError:
+					pass
+			if local_album == None:
+				name = remove_brackets(name)
+				local_album = try_find(artist, name)
+			if local_album == None:
+				name = remove_parens(name)
+				local_album = try_find(artist, name)
+			if local_album == None:
+				name = remove_colon_and_following(name)
+				local_album = try_find(artist, name, remove_colon_and_following)
+			if local_album == None:
+				name = name.replace('?', '')
+				local_album = try_find(artist, name)
+			if local_album == None:
+				name = "The " + name
+				local_album = try_find(artist, name)
+			if local_album == None:
+				best_distance = None
+				best_match = None
+				for album_name, album in artist.albums.items():
+					distance = levenshtein(album_name.lower(), fm_album.item.get_name().lower())
+					if best_match == None or distance < best_distance:
+						best_match = album
+						best_distance = distance
+				local_album = best_match	
+				#print "Closest match to " + fm_album.item.get_name() + ": " + best_match.name + " (distance: " + str(best_distance) + ")"
+
+			if local_album != None:
+				#print "Adding " + str(fm_album.playcount) + " scrobbles to " + local_album.name
+				local_album.scrobbles += fm_album.playcount
+			else:
+				#print "Didn't find " + fm_album.item.get_artist().get_name() +  " - " + fm_album.item.get_name()
+				num_notfound += 1
+		except KeyError:
+			#print "=== Didn't find " + fm_album.item.get_artist().get_name()
+			num_notfound += 1
+
+	print str(num_notfound) + " albums were not found"	
+	
+	print "Loading artist scrobbles..."
 	fm_artists = library.get_artists(limit=1000) # limit=None does not work
 	print "Done. Loaded " + str(len(fm_artists)) + " artists."
 
-	for fm_artist in fm_artists:
-		try:
+	#for fm_artist in fm_artists:
+		#try:
 			#print fm_artist.item.get_name() + ": " + str(fm_artist.playcount)
-			lower_artists[string.lower(fm_artist.item.get_name())].scrobbles = fm_artist.playcount
-		except KeyError:
-			pass
+			#lower_artists[string.lower(fm_artist.item.get_name())].scrobbles = fm_artist.playcount
+		#except KeyError:
+		#	print "Didn't find " + fm_artist.item.get_name()
 
 	for artist_name, artist in artists.items():
 		fm_artist = pylast.Artist(artist_name, network)
@@ -285,7 +391,11 @@ def save_stats(artists, filename):
 	stats = {}
 
 	for artist_name, artist in artists.items():
-		stats[artist_name] = (artist.scrobbles, artist.listeners)
+		album_stats = {}
+		for album in artist.albums.values():
+			album_stats[album.name] = album.scrobbles
+
+		stats[artist_name] = (artist.scrobbles, artist.listeners, album_stats)
 
 	f = file(filename, "w")
 	pickle.dump(stats, f)
@@ -296,10 +406,13 @@ def load_stats(artists, filename):
 	stats = pickle.load(f)
 	f.close()
 
-	for artist_name, (scrobbles, listeners) in stats.items():
+	for artist_name, (scrobbles, listeners, album_stats) in stats.items():
 		try:
 			artists[artist_name].scrobbles = scrobbles
 			artists[artist_name].listeners = listeners
+
+			for name, scrobbles in album_stats.items():
+				artists[artist_name].scrobbles = scrobbles
 		except KeyError:
 			print artist_name + " no longer in library"
 		
@@ -312,10 +425,10 @@ songs = mpd.listallinfo()
 artists = create_artist_list(songs, DIRECTORY, SUB_DIRECTORY, True)
 genres = create_genre_list(artists)
 
-#fetch_stats(artists, network)
-#save_stats(artists, "stats.bin")
+fetch_stats(artists, network)
+save_stats(artists, "stats.bin")
 
-load_stats(artists, "stats.bin")
+#load_stats(artists, "stats.bin")
 
 write_html(genres)
 
