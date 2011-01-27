@@ -43,9 +43,11 @@ p.releasedate {
 }
 
 p.scrobbles {
+	display: none;
 }
 
 p.listeners {
+	display: none;
 }
 
 a {

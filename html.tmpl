@@ -9,10 +9,18 @@
 		<script type="text/javascript" src="../jquery-1.4.4.min.js"></script> 
 		<script type="text/javascript">
 		#raw
-			function sortByDate() {
+			function sort(f) {
 				var albumcontainer = $('#albums');	
 				var albums = albumcontainer.children('div.album').get();
 
+				albums.sort(function(a, b) {
+					return f(a, b);
+				});
+
+				$.each(albums, function(idx, item) { albumcontainer.append(item); });
+			}
+
+			function sortByDate() {
 				function readDate(x) {
 					var s = $.trim($(x).find('p.releasedate').text());
 
@@ -26,14 +34,32 @@
 					return new Date(s.replace(/-/g, ' '));
 				}
 
-				albums.sort(function(a, b) {
+				sort(function(a, b) {
 					var dateA = readDate(a);
 					var dateB = readDate(b);
 
 					return dateA - dateB;
 				});
+			}
 
-				$.each(albums, function(idx, item) { albumcontainer.append(item); });
+			function sortByScrobbles() {
+				function readScrobbles(x) {
+					return $.trim($(x).find('p.scrobbles').text());
+				}
+
+				sort(function(a, b) {
+					return readScrobbles(b) - readScrobbles(a); 
+				});
+			}
+
+			function sortByLastFm() {
+				function readListeners(x) {
+					return $.trim($(x).find('p.listeners').text());
+				}
+
+				sort(function(a, b) {
+					return readListeners(b) - readListeners(a);
+				});
 			}
 		#end raw
 		</script>
@@ -52,7 +78,7 @@
 		</ul>
 
 		<h2 id="start">$this_genre.name ($this_genre.num_albums albums)</h2>
-		<p style="margin: 20px;">Sort by <a href="javascript:sortByName();">name</a>, <a href="javascript:sortByDate()">release date</a>, <a href="javascript:sortByLastFm()">popularity on last.fm</a>.</p>
+		<p style="margin: 20px;">Sort by <a href="javascript:sortByName();">name</a>, <a href="javascript:sortByDate()">release date</a>, <a href="javascript:sortByLastFm()">popularity on last.fm</a>, <a href="javascript:sortByScrobbles()">your number of scrobbles</a>.</p>
 
 		<div id="albums">
 		#for $artist in sorted($this_genre.artists.keys())
@@ -64,6 +90,11 @@
 					#set $sep = ''
 					[#for $genre in $album.artist.genres#$sep<a href="$genre.clean_name#echo '.html'#\#start">$genre.name</a>#set $sep = ', '##end for#]
 				</small>
+				<small>
+					<p><em>$this_genre.artists[$artist].scrobbles</em> scrobbles, $album.scrobbles album scrobbles, 
+					<em>$this_genre.artists[$artist].listeners</em> listeners.</p>
+				</small>
+
 				<p class="releasedate">$album.date</p>
 				<p class="scrobbles">$this_genre.artists[$artist].scrobbles</p>
 				<p class="listeners">$this_genre.artists[$artist].listeners</p>

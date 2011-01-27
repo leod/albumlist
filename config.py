@@ -1,3 +1,5 @@
+# coding=utf-8
+
 API_KEY = "041020917953e29f2ce60c7efbff8267"
 API_SECRET = "516a533d729f4c498fbdfe121fb9f352"
 
@@ -155,3 +157,26 @@ TRANSLATE_TAGS = {
 	"alt country": u"alt-country",
 }
 TAG_MIN_WEIGHT = 30
+
+ARTIST_NAME_FIXES = {
+	u"godspeed you black emperor!": "godspeed you! black emperor",
+	u"negura bunget": u"negură bunget",
+	u"dave brubeck quartet the": "the dave brubeck quartet",
+	u"dave brubeck": "the dave brubeck quartet",
+	u"gza": "gza/genius",
+    u"soap & skin": "soap&skin",
+    u"alan parsons": "the alan parsons project",
+    u"getz, stan": "stan getz",
+    u"the arcade fire": "arcade fire",
+	u"motorhead": "motörhead",
+	u"jimi hendrix": "the jimi hendrix experience",
+	u"boehse onkelz": "böhse onkelz",
+}
+
+ALBUM_NAME_FIXES = {
+	u"65daysofstatic": { u"the destruction of small ideals": u"the destruction of small ideas" },
+	u"baroness": { u"red": u"red album", u"blue" : u"blue record" },
+	u"wu-tang clan": { u"enter the wu-tang (36 chambers)": u"enter the wu-tang: 36 chambers" },
+	u"sleep": { u"holy mountain": u"sleep's holy mountain" },
+	u"justice": { u"cross": u"✝" },
+}
