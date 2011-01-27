@@ -4,6 +4,7 @@ import locale
 import pprint
 import string
 import pickle
+import math
 
 import pylast
 import sqlite3
@@ -127,6 +128,7 @@ class Genre(object):
 	clean_name = None
 	artists = {}
 	num_albums = 0
+	weight = 0 # 0-9
 
 class Artist(object):
 	name = None
@@ -232,6 +234,16 @@ def create_genre_list(artists):
 		if genre.num_albums / float(num_albums) > 0.04:
 			genre.is_important = True
 
+	# Weigh genres
+	max_albums = reduce(lambda x, y: max(x, y), map(lambda g: g.num_albums, genres.values()))
+	min_albums = reduce(lambda x, y: min(x, y), map(lambda g: g.num_albums, genres.values()))
+
+	print max_albums
+	for genre in genres.values():
+		weight = (math.log(genre.num_albums) - math.log(min_albums)) / (math.log(max_albums) - math.log(min_albums))
+		genre.weight = int(9 * weight)
+		assert genre.weight in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
 	return genres
 
 def write_html(genres):
@@ -258,12 +270,10 @@ def fetch_stats(artists, network):
 
 	for fm_artist in fm_artists:
 		try:
-			print fm_artist.item.get_name() + ": " + str(fm_artist.playcount)
+			#print fm_artist.item.get_name() + ": " + str(fm_artist.playcount)
 			lower_artists[string.lower(fm_artist.item.get_name())].scrobbles = fm_artist.playcount
 		except KeyError:
 			pass
-
-	return
 
 	for artist_name, artist in artists.items():
 		fm_artist = pylast.Artist(artist_name, network)
