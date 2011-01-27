@@ -13,9 +13,7 @@
 				var albumcontainer = $('#albums');	
 				var albums = albumcontainer.children('div.album').get();
 
-				albums.sort(function(a, b) {
-					return f(a, b);
-				});
+				albums.sort(f);
 
 				$.each(albums, function(idx, item) { albumcontainer.append(item); });
 			}
@@ -44,7 +42,7 @@
 
 			function sortByScrobbles() {
 				function readScrobbles(x) {
-					return $.trim($(x).find('p.scrobbles').text());
+					return $.trim($(x).find('p.times_listened').text());
 				}
 
 				sort(function(a, b) {
@@ -78,7 +76,7 @@
 		</ul>
 
 		<h2 id="start">$this_genre.name ($this_genre.num_albums albums)</h2>
-		<p style="margin: 20px;">Sort by <a href="javascript:sortByName();">name</a>, <a href="javascript:sortByDate()">release date</a>, <a href="javascript:sortByLastFm()">popularity on last.fm</a>, <a href="javascript:sortByScrobbles()">your number of scrobbles</a>.</p>
+		<p style="margin: 20px;">Sort by <a href="javascript:sortByName();">name</a>, <a href="javascript:sortByDate()">release date</a>, <a href="javascript:sortByLastFm()">popularity on last.fm</a>, <a href="javascript:sortByScrobbles()">your number of listens</a>.</p>
 
 		<div id="albums">
 		#for $artist in sorted($this_genre.artists.keys())
@@ -91,12 +89,13 @@
 					[#for $genre in $album.artist.genres#$sep<a href="$genre.clean_name#echo '.html'#\#start">$genre.name</a>#set $sep = ', '##end for#]
 				</small>
 				<small>
-					<p><em>$this_genre.artists[$artist].scrobbles</em> scrobbles, $album.scrobbles album scrobbles, 
+					<p><em>$album.scrobbles scrobbles (#echo "%.2f" % $album.times_listened# times), 
 					<em>$this_genre.artists[$artist].listeners</em> listeners.</p>
 				</small>
 
 				<p class="releasedate">$album.date</p>
 				<p class="scrobbles">$this_genre.artists[$artist].scrobbles</p>
+				<p class="times_listened">$album.times_listened</p>
 				<p class="listeners">$this_genre.artists[$artist].listeners</p>
 
 				<hr />
