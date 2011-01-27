@@ -435,7 +435,6 @@ songs = mpd.listallinfo()
 artists = create_artist_list(songs, DIRECTORY, SUB_DIRECTORY, True)
 genres = create_genre_list(artists)
 
-
 #fetch_stats(artists, network)
 #save_stats(artists, "stats.bin")
 
