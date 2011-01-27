@@ -3,6 +3,7 @@ import sys
 import locale
 import pprint
 import string
+import pickle
 
 import pylast
 import sqlite3
@@ -133,6 +134,9 @@ class Artist(object):
 	genres = []
 	albums = {}
 
+	scrobbles = 0
+	listeners = 0
+
 class Album(object):
 	artst = None
 	name = None
@@ -225,7 +229,6 @@ def create_genre_list(artists):
 		assert len(artist.genre_names) == len(artist.genres)
 
 	for genre in genres.values():
-		print genre.num_albums / num_albums
 		if genre.num_albums / float(num_albums) > 0.04:
 			genre.is_important = True
 
@@ -243,6 +246,52 @@ def write_html(genres):
 		out = open("html/" + genre.clean_name + ".html", "w")
 		out.write(str(template))
 		out.close()
+
+def fetch_stats(artists, network):
+	library = pylast.Library(USER, network)
+
+	lower_artists = dict(zip(map(string.lower, artists.keys()), artists.values()))
+
+	print "Loading scrobbles..."
+	fm_artists = library.get_artists(limit=1000) # limit=None does not work
+	print "Done. Loaded " + str(len(fm_artists)) + " artists."
+
+	for fm_artist in fm_artists:
+		try:
+			print fm_artist.item.get_name() + ": " + str(fm_artist.playcount)
+			lower_artists[string.lower(fm_artist.item.get_name())].scrobbles = fm_artist.playcount
+		except KeyError:
+			pass
+
+	return
+
+	for artist_name, artist in artists.items():
+		fm_artist = pylast.Artist(artist_name, network)
+		artist.listeners = fm_artist.get_listener_count()
+
+		print artist_name + ": " + str(artist.listeners) + " listeners"
+
+def save_stats(artists, filename):
+	stats = {}
+
+	for artist_name, artist in artists.items():
+		stats[artist_name] = (artist.scrobbles, artist.listeners)
+
+	f = file(filename, "w")
+	pickle.dump(stats, f)
+	f.close()
+
+def load_stats(artists, filename):
+	f = file(filename, "r")
+	stats = pickle.load(f)
+	f.close()
+
+	for artist_name, (scrobbles, listeners) in stats.items():
+		try:
+			artists[artist_name].scrobbles = scrobbles
+			artists[artist_name].listeners = listeners
+		except KeyError:
+			print artist_name + " no longer in library"
 		
 network = pylast.LastFMNetwork(api_key = API_KEY, api_secret = API_SECRET)
 
@@ -252,6 +301,11 @@ songs = mpd.listallinfo()
 
 artists = create_artist_list(songs, DIRECTORY, SUB_DIRECTORY, True)
 genres = create_genre_list(artists)
+
+#fetch_stats(artists, network)
+#save_stats(artists, "stats.bin")
+
+load_stats(artists, "stats.bin")
 
 write_html(genres)
 
