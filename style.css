@@ -1,7 +1,22 @@
 body {
 	color: #747474;
-	font-family: sans-serif; 
+	font-family: "Lucida Grande", Arial, Helvetica, Verdana, sans-serif;
 }
+
+#genres a.tag0 { font-size: 0.7em; }
+#genres a.tag1 { font-size: 0.8em; }
+#genres a.tag2 { font-size: 0.9em; }
+#genres a.tag3 { font-size: 1.0em; }
+#genres a.tag4 { font-size: 1.2em; }
+#genres a.tag5 { font-size: 1.4em; }
+#genres a.tag6 { font-size: 1.6em; }
+#genres a.tag7 { font-size: 1.8em; }
+#genres a.tag8 { font-size: 2.2em; }
+#genres a.tag9 { font-size: 2.5em; }
+#genres { padding: 2px; line-height: 2.5em; text-align: center; }
+#genres a { padding: 0px; }
+#genres { margin: 0; }
+#genres li { display: inline; font-weight: bold; margin: 5px; }
 
 div.album {
 	background-color: #F1F7F8;
@@ -27,6 +42,12 @@ p.releasedate {
 	display: none;
 }
 
+p.scrobbles {
+}
+
+p.listeners {
+}
+
 a {
 	color: #006D92;
 	text-decoration: none;
@@ -38,7 +59,7 @@ h1, h2 {
 	clear: left;
 }
 
-#genres ul {
+/*#genres ul {
 	float: left;
 	width: 50em;
 	margin: 0;
@@ -51,4 +72,4 @@ h1, h2 {
 	width: 25em;
 	margin: 0;
 	padding: 0;
-}
+}*

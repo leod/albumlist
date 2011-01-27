@@ -9,13 +9,12 @@
 		<script type="text/javascript" src="../jquery-1.4.4.min.js"></script> 
 		<script type="text/javascript">
 		#raw
-	
 			function sortByDate() {
 				var albumcontainer = $('#albums');	
 				var albums = albumcontainer.children('div.album').get();
 
 				function readDate(x) {
-					var s = $.trim($(x).find("p.releasedate").text());
+					var s = $.trim($(x).find('p.releasedate').text());
 
 					var numDashes = 2;
 					for (var i = 0; i < s.length; ++i)
@@ -36,7 +35,6 @@
 
 				$.each(albums, function(idx, item) { albumcontainer.append(item); });
 			}
-			
 		#end raw
 		</script>
 	</head>
@@ -48,13 +46,7 @@
 		<ul id="genres">
 			#for $genre in sorted($genres.keys())
 				<li>
-					#if $genres[$genre].is_important
-						<strong>
-					#end if
-					<a href="$genres[$genre].clean_name#echo '.html'#\#start">$genre (#echo $genres[$genre].num_albums# albums)</a>
-					#if $genres[$genre].is_important
-						</strong>
-					#end if
+					<a href="$genres[$genre].clean_name#echo '.html'#\#start" class="tag$genres[$genre].weight" title="$genre: $genres[$genre].num_albums albums">$genre</a>
 				</li>
 			#end for
 		</ul>
@@ -72,8 +64,11 @@
 					#set $sep = ''
 					[#for $genre in $album.artist.genres#$sep<a href="$genre.clean_name#echo '.html'#\#start">$genre.name</a>#set $sep = ', '##end for#]
 				</small>
+				<p class="releasedate">$album.date</p>
+				<p class="scrobbles">$this_genre.artists[$artist].scrobbles</p>
+				<p class="listeners">$this_genre.artists[$artist].listeners</p>
+
 				<hr />
-				<p class="releasedate">$album.date</a>
 			</div>
 		#end for
         #end for
