@@ -9,13 +9,31 @@
 		<script type="text/javascript" src="../jquery-1.4.4.min.js"></script> 
 		<script type="text/javascript">
 		#raw
+			var cached_albums = [];
+
+			function readAlbums() {
+				var albumcontainer = $('#albums');	
+				var albums = albumcontainer.children('div.album').get();
+				$.each(albums, function(idx, item) {
+					cached_albums.push({ element: item });
+                });
+			}
+
+			function readCacheableProperty(album, name, f) {
+				if (album[name] == undefined) {
+					album[name] = f(album.element);
+				}
+				return album[name];
+			}
+
 			function sort(f) {
 				var albumcontainer = $('#albums');	
 				var albums = albumcontainer.children('div.album').get();
 
-				albums.sort(f);
+				if (!cached_albums.length) readAlbums();
+				cached_albums.sort(f);
 
-				$.each(albums, function(idx, item) { albumcontainer.append(item); });
+				$.each(cached_albums, function(idx, item) { albumcontainer.append(item.element); });
 			}
 
 			function sortByDate() {
@@ -29,12 +47,13 @@
 					for (var i = 0; i < numDashes; ++i)
 						s += " 01";
 
-					return new Date(s.replace(/-/g, ' '));
+					var dat = new Date(s.replace(/-/g, ' '));
+					return dat
 				}
 
 				sort(function(a, b) {
-					var dateA = readDate(a);
-					var dateB = readDate(b);
+					var dateA = readCacheableProperty(a, 'releasedate', readDate);
+					var dateB = readCacheableProperty(b, 'releasedate', readDate);
 
 					return dateA - dateB;
 				});
@@ -46,7 +65,8 @@
 				}
 
 				sort(function(a, b) {
-					return readScrobbles(b) - readScrobbles(a); 
+					return readCacheableProperty(b, 'times_listened', readScrobbles) -
+                           readCacheableProperty(a, 'times_listened', readScrobbles); 
 				});
 			}
 
@@ -88,10 +108,11 @@
 					#set $sep = ''
 					[#for $genre in $album.artist.genres#$sep<a href="$genre.clean_name#echo '.html'#\#start">$genre.name</a>#set $sep = ', '##end for#]
 				</small>
-				<small>
-					<p><em>$album.scrobbles scrobbles (#echo "%.2f" % $album.times_listened# times), 
-					<em>$this_genre.artists[$artist].listeners</em> listeners.</p>
-				</small>
+				<p>
+					<small>
+						<em>$album.scrobbles scrobbles (#echo "%.2f" % $album.times_listened# times), $this_genre.artists[$artist].listeners listeners.</em> 
+					</small>
+				</p>
 
 				<p class="releasedate">$album.date</p>
 				<p class="scrobbles">$this_genre.artists[$artist].scrobbles</p>
