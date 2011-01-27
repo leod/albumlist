@@ -168,6 +168,7 @@ class Album(object):
 	date = ""
 	is_important = False
 	scrobbles = 0
+	times_listened = 0.0
 
 def create_artist_list(songs, directory, subdir=None, extract_covers=False):
 	artists = {}
@@ -204,6 +205,7 @@ def create_artist_list(songs, directory, subdir=None, extract_covers=False):
 			album.name = album_name
 			album.date = ""
 			album.scrobbles = 0
+			album.songs = []
 
 			if "date" in song:
 				album.date = song["date"]
@@ -295,6 +297,8 @@ def fetch_stats(artists, network):
 		try:
 			fm_artist_name = fm_album.item.get_artist().get_name().lower()
 			artist = None
+
+			# TODO: ...
 			try:
 				artist = lower_artists[fm_artist_name]
 			except KeyError:
@@ -412,9 +416,15 @@ def load_stats(artists, filename):
 			artists[artist_name].listeners = listeners
 
 			for name, scrobbles in album_stats.items():
-				artists[artist_name].scrobbles = scrobbles
+				artists[artist_name].albums[name].scrobbles = scrobbles
 		except KeyError:
 			print artist_name + " no longer in library"
+
+def normalize_stats(artists):
+	for artist in artists.values():
+		for album in artist.albums.values():
+			num_tracks = len(album.songs)
+			album.times_listened = album.scrobbles / float(num_tracks)
 		
 network = pylast.LastFMNetwork(api_key = API_KEY, api_secret = API_SECRET)
 
@@ -425,10 +435,13 @@ songs = mpd.listallinfo()
 artists = create_artist_list(songs, DIRECTORY, SUB_DIRECTORY, True)
 genres = create_genre_list(artists)
 
-fetch_stats(artists, network)
-save_stats(artists, "stats.bin")
 
-#load_stats(artists, "stats.bin")
+#fetch_stats(artists, network)
+#save_stats(artists, "stats.bin")
+
+load_stats(artists, "stats.bin")
+
+normalize_stats(artists)
 
 write_html(genres)
 

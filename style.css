@@ -50,6 +50,10 @@ p.listeners {
 	display: none;
 }
 
+p.times_listened {
+	display: none;
+}
+
 a {
 	color: #006D92;
 	text-decoration: none;
