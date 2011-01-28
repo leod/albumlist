@@ -10,14 +10,15 @@ import re
 import pylast
 import sqlite3
 import mpd
+from PIL import Image
+from Cheetah.Template import Template
 
 import mutagen.easyid3
 import mutagen.id3 
 import mutagen.easymp4
+import mutagen.m4a
 import mutagen.flac
 import mutagen.oggvorbis
-
-from Cheetah.Template import Template
 
 from config import *
 
@@ -68,24 +69,62 @@ def get_tagger(fname):
 
 def extract_cover(fname, to):
 	if os.path.exists(to + ".jpg"): return (True, to + ".jpg")
-	if not fname.endswith(".mp3"): return (False, "")
 
-	f = mutagen.id3.ID3(fname);
+	def mime_to_ext(mime):
+		if (mime == "image/jpeg") or (mime == "image/jpg"): return ".jpg"
+		if mime == "image/png": return ".png"
+		if mime == "image/gif": return ".gif"
 
-	for frame in f.getall("APIC"):
-		ext = ".img"
-		if (frame.mime == "image/jpeg") or (frame.mime == "image/jpg"): ext = ".jpg"
-		if frame.mime == "image/png": ext = ".png"
-		if frame.mime == "image/gif": ext = ".gif"
+		return None
 
-		to += ext
-
+	def write(to, data):
 		if not os.path.exists(to):
-			myfile = file(to, 'wb')
-			myfile.write(frame.data)
-			myfile.close()
+			f = file(to, 'wb')
+			f.write(data)
+			f.close()	
 
-		return (True, to)
+			# Resize the image
+			image = Image.open(to)
+			image = image.resize((128, 128))
+			image.save(to)
+
+	if fname.endswith(".mp3"): 
+		f = mutagen.id3.ID3(fname);
+
+		pictures = f.getall("APIC")
+		if len(pictures) >= 1:
+			picture = pictures[0]
+
+			ext = mime_to_ext(picture.mime)
+			if ext == None: return (False, "")
+			to += ext
+
+			write(to, picture.data)
+			return (True, to)
+	elif fname.endswith(".flac"):
+		f = mutagen.flac.FLAC(fname)	
+
+		if len(f.pictures) >= 1:
+			picture = f.pictures[0]
+
+			ext = mime_to_ext(picture.mime)
+			if ext == None: return (False, "")
+			to += ext
+
+			write(to, picture.data)
+			return (True, to)
+	elif fname.endswith(".m4a"):
+		f = mutagen.m4a.M4A(fname)
+
+		if "covr" in f.tags:
+			cover = f.tags["covr"]
+
+			if cover.imageformat == mutagen.m4a.M4ACover.FORMAT_JPEG: to += ".jpg"	
+			elif cover.imageformat == mutagen.m4a.M4ACover.FORMAT_PNG: to += ".png"	
+			else: assert False
+
+			write(to, cover)
+			return (True, to)
 
 	return (False, "")
 
@@ -283,7 +322,7 @@ def write_html(genres):
 		out.write(str(template))
 		out.close()
 
-def fetch_stats(artists, network):
+def fetch_album_stats(artists, network):
 	library = pylast.Library(USER, network)
 
 	lower_artists = dict(zip(map(lambda s: s.lower(), artists.keys()), artists.values()))
@@ -384,7 +423,8 @@ def fetch_stats(artists, network):
 			#lower_artists[string.lower(fm_artist.item.get_name())].scrobbles = fm_artist.playcount
 		#except KeyError:
 		#	print "Didn't find " + fm_artist.item.get_name()
-
+	
+def fetch_listener_stats(artists, network):
 	for artist_name, artist in artists.items():
 		fm_artist = pylast.Artist(artist_name, network)
 		artist.listeners = fm_artist.get_listener_count()
@@ -435,10 +475,12 @@ songs = mpd.listallinfo()
 artists = create_artist_list(songs, DIRECTORY, SUB_DIRECTORY, True)
 genres = create_genre_list(artists)
 
-#fetch_stats(artists, network)
-#save_stats(artists, "stats.bin")
-
 load_stats(artists, "stats.bin")
+
+#fetch_album_stats(artists, network)
+fetch_listener_stats(artists, network)
+
+save_stats(artists, "stats.bin")
 
 normalize_stats(artists)
 

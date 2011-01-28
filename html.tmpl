@@ -76,7 +76,8 @@
 				}
 
 				sort(function(a, b) {
-					return readListeners(b) - readListeners(a);
+					return readCacheableProperty(b, 'listeners', readListeners) -
+                           readCacheableProperty(a, 'listeners', readListeners);
 				});
 			}
 		#end raw
