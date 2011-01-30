@@ -8,27 +8,54 @@
 
 		<script type="text/javascript" src="../jquery-1.4.4.min.js"></script> 
 		<script type="text/javascript">
-		var artists = {
-		#set $artist_sep = ''
-        #for $artist_name, $artist in $artists.items()
-			$artist_sep
-
-            #set $album_sep = ''
-            #for $album_name, $album in $artist.albums.items()
-				$artist_name : {
-					$album_sep
-
-					$album_name : {}
-
-					#set $album_sep = ','
+			var artists = {
+			#set $artist_sep = ''
+			#for $artist_name, $artist in $artists.items()
+				$artist_sep
+				"$artist_name": {
+					albums: [
+						#set $album_sep = ''
+						#for $album_name, $album in $artist.albums.items()
+								$album_sep
+								{
+									name: #echo "\"" + $album_name.replace("\"", "\\\"") + "\""# ,
+									release_date: "$album.date",
+									cover_filename: "$album.cover_filename",
+									scrobbles: $album.scrobbles,
+									times_listened: $album.times_listened,
+									artist_name: "$artist_name"
+								}
+								#set $album_sep = ','
+						#end for
+					],
+					scrobbles: $artist.scrobbles,
+					listeners: $artist.listeners,
+					genres: $artist.genre_names
 				}
-            #end for
+			   #set $artist_sep = ','
+			#end for
+			};
 
-           #set $artist_sep = ','
-		#end for
-		}
+			function createAlbumHTML(album) {
+				date_str = album.date != "" ? '[' + album.release_date + ']' : '';
 
-		#raw
+				return '<div class="album"><img src="../' + album.cover_filename + ' width="128" height="128" />' +
+				       '<p>' + album.artist_name + ' &#151; ' + album.name + ' ' + date_str + '</p>' +
+				       '<small>genres</small>' +
+					   '<hr />' +
+				       '</div>'
+			}
+
+			#raw
+
+			$(document).ready(function() {
+				$.each(artists, function(idx, artist) {
+					$.each(artist.albums, function(idx, album) {
+						$('#albums').append(createAlbumHTML(album));
+					});
+				});
+			});
+
 			var cached_albums = [];
 
 			function readAlbums() {
@@ -106,6 +133,8 @@
 
 	<body>
 		<h1>Albums</h1>
+		<div id="albums">
 
+		</div>
 	</body>
 </html>
