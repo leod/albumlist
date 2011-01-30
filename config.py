@@ -170,7 +170,7 @@ ARTIST_NAME_FIXES = {
     u"the arcade fire": "arcade fire",
 	u"motorhead": "motörhead",
 	u"jimi hendrix": "the jimi hendrix experience",
-	u"boehse onkelz": "böhse onkelz",
+	u"boehse onkelz": u"böhse onkelz",
 }
 
 ALBUM_NAME_FIXES = {
