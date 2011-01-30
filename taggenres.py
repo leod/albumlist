@@ -6,6 +6,7 @@ import string
 import pickle
 import math
 import re
+import httplib
 
 import pylast
 import sqlite3
@@ -327,95 +328,108 @@ def fetch_album_stats(artists, network):
 
 	lower_artists = dict(zip(map(lambda s: s.lower(), artists.keys()), artists.values()))
 
+	# Reset all albums to 0 first
+	for artist in artists.values():
+		for album in artist.albums.values():
+			album.scrobbles = 0
+
 	print "Loading album scrobbles..."
 	fm_albums = library.get_albums(limit=2000)
 	print "Done. Loaded " + str(len(fm_albums)) + " albums."
 
 	num_notfound = 0
 	for fm_album in fm_albums:
-		try:
-			fm_artist_name = fm_album.item.get_artist().get_name().lower()
-			artist = None
+		fm_artist_name = fm_album.item.get_artist().get_name().lower()
+		artist = None
 
-			# TODO: ...
+        # Try to find fm_artist_name in the local library
+		transformations = [
+			lambda x: x,
+			lambda x: ARTIST_NAME_FIXES[x],
+			lambda x: x.replace("&", "and"),
+			lambda x: x.replace("+", "and"),
+			lambda x: x.replace("and", "&"),
+		]
+
+		for f in transformations:
 			try:
-				artist = lower_artists[fm_artist_name]
+				artist = lower_artists[f(fm_artist_name)]
+				if artist: break
 			except KeyError:
-				try:
-					artist = lower_artists[fm_artist_name.replace("&", "and")]
-				except KeyError:
-					try:
-						artist = lower_artists[fm_artist_name.replace("+", "and")]
-					except KeyError:
-						try:
-							artist = lower_artists[ARTIST_NAME_FIXES[fm_artist_name].lower()]
-						except KeyError:
-							artist = lower_artists[fm_artist_name.replace("and", "&")]
+				pass
 
-			def try_find(artist, name, f=None):
-				if f == None: f = lambda x: x
-				name = name.lower().strip()
-				for album_name, album in artist.albums.items():
-					if f(album_name).lower() == name:
-						return album
+		if fm_artist_name == "various artists":
+			num_notfound += 1
+			continue
 
-			name = fm_album.item.get_name()
+		if artist == None:
+			print "Didn't find " + fm_artist_name
+			num_notfound += 1
+			continue
+
+		# Try to find fm_album in the local library
+		def try_find(artist, name, f=None):
+			if f == None: f = lambda x: x
+			name = name.lower().strip()
+			for album_name, album in artist.albums.items():
+				if f(album_name).lower() == name:
+					return album
+
+		name = fm_album.item.get_name()
+		local_album = try_find(artist, name)
+
+		def remove_brackets(s):
+			return re.sub('\[.*?\]', '', s)
+		def remove_parens(s):
+			return re.sub('\(.*?\)', '', s)
+		def remove_colon_and_following(s):
+			return re.sub(':.*$', '', s)
+
+		if local_album == None:
+			try:
+				name = ALBUM_NAME_FIXES[fm_album.item.get_artist().get_name().lower()][name.lower()]
+				local_album = try_find(artist, name)
+			except KeyError:
+				pass
+		if local_album == None:
+			name = remove_brackets(name)
 			local_album = try_find(artist, name)
+		if local_album == None:
+			name = remove_parens(name)
+			local_album = try_find(artist, name)
+		if local_album == None:
+			name = remove_colon_and_following(name)
+			local_album = try_find(artist, name, remove_colon_and_following)
+		if local_album == None:
+			name = name.replace('?', '')
+			local_album = try_find(artist, name)
+		if local_album == None:
+			name = "The " + name
+			local_album = try_find(artist, name)
+		if local_album == None:
+			best_distance = None
+			best_match = None
+			for album_name, album in artist.albums.items():
+				distance = levenshtein(album_name.lower(), fm_album.item.get_name().lower())
+				if best_match == None or distance < best_distance:
+					best_match = album
+					best_distance = distance
+			local_album = best_match	
+			if best_distance > 10:
+				print fm_artist_name + ": closest match to " + fm_album.item.get_name() + ": " + best_match.name + " (distance: " + str(best_distance) + ")"
 
-			def remove_brackets(s):
-				return re.sub('\[.*?\]', '', s)
-			def remove_parens(s):
-				return re.sub('\(.*?\)', '', s)
-			def remove_colon_and_following(s):
-				return re.sub(':.*$', '', s)
-
-			if local_album == None:
-				try:
-					name = ALBUM_NAME_FIXES[fm_album.item.get_artist().get_name().lower()][name.lower()]
-					local_album = try_find(artist, name)
-				except KeyError:
-					pass
-			if local_album == None:
-				name = remove_brackets(name)
-				local_album = try_find(artist, name)
-			if local_album == None:
-				name = remove_parens(name)
-				local_album = try_find(artist, name)
-			if local_album == None:
-				name = remove_colon_and_following(name)
-				local_album = try_find(artist, name, remove_colon_and_following)
-			if local_album == None:
-				name = name.replace('?', '')
-				local_album = try_find(artist, name)
-			if local_album == None:
-				name = "The " + name
-				local_album = try_find(artist, name)
-			if local_album == None:
-				best_distance = None
-				best_match = None
-				for album_name, album in artist.albums.items():
-					distance = levenshtein(album_name.lower(), fm_album.item.get_name().lower())
-					if best_match == None or distance < best_distance:
-						best_match = album
-						best_distance = distance
-				local_album = best_match	
-				#print "Closest match to " + fm_album.item.get_name() + ": " + best_match.name + " (distance: " + str(best_distance) + ")"
-
-			if local_album != None:
-				#print "Adding " + str(fm_album.playcount) + " scrobbles to " + local_album.name
-				local_album.scrobbles += fm_album.playcount
-			else:
-				#print "Didn't find " + fm_album.item.get_artist().get_name() +  " - " + fm_album.item.get_name()
-				num_notfound += 1
-		except KeyError:
-			#print "=== Didn't find " + fm_album.item.get_artist().get_name()
+		if local_album != None:
+			#print "Adding " + str(fm_album.playcount) + " scrobbles to " + local_album.name
+			local_album.scrobbles += fm_album.playcount
+		else:
+			#print "Didn't find " + fm_album.item.get_artist().get_name() +  " - " + fm_album.item.get_name()
 			num_notfound += 1
 
 	print str(num_notfound) + " albums were not found"	
 	
-	print "Loading artist scrobbles..."
-	fm_artists = library.get_artists(limit=1000) # limit=None does not work
-	print "Done. Loaded " + str(len(fm_artists)) + " artists."
+	#print "Loading artist scrobbles..."
+	#fm_artists = library.get_artists(limit=1000) # limit=None does not work
+	#print "Done. Loaded " + str(len(fm_artists)) + " artists."
 
 	#for fm_artist in fm_artists:
 		#try:
@@ -424,8 +438,11 @@ def fetch_album_stats(artists, network):
 		#except KeyError:
 		#	print "Didn't find " + fm_artist.item.get_name()
 	
-def fetch_listener_stats(artists, network):
+def fetch_listener_stats(artists, network, partial=False):
 	for artist_name, artist in artists.items():
+		if partial and artist.listeners != 0:
+			continue
+
 		fm_artist = pylast.Artist(artist_name, network)
 		artist.listeners = fm_artist.get_listener_count()
 
@@ -478,12 +495,35 @@ genres = create_genre_list(artists)
 load_stats(artists, "stats.bin")
 
 #fetch_album_stats(artists, network)
-fetch_listener_stats(artists, network)
+
+try:
+	#fetch_listener_stats(artists, network)
+	pass
+except httplib.BadStatusLine:
+	print "retrying"
+
+	while True:
+		try:
+			fetch_listener_stats(artists, network, True)
+		except:
+			print "-> retrying"
+			continue
+		break
 
 save_stats(artists, "stats.bin")
 
 normalize_stats(artists)
 
 write_html(genres)
+
+# Test
+template = Template(file="all.tmpl")
+
+template.genres = genres
+template.artists = artists
+
+out = open("html/all.html", "w")
+out.write(str(template))
+out.close()
 
 #tag_all(songs, network, subdir=SUB_DIRECTORY, translate=TRANSLATE_TAGS, whitelist=TAG_WHITELIST, min_weight=TAG_MIN_WEIGHT)

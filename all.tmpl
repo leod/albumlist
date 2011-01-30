@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Albums</title>
+
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+		<link href="../style.css" rel="stylesheet" type="text/css" />
+
+		<script type="text/javascript" src="../jquery-1.4.4.min.js"></script> 
+		<script type="text/javascript">
+		var artists = {
+		#set $artist_sep = ''
+        #for $artist_name, $artist in $artists.items()
+			$artist_sep
+
+            #set $album_sep = ''
+            #for $album_name, $album in $artist.albums.items()
+				$artist_name : {
+					$album_sep
+
+					$album_name : {}
+
+					#set $album_sep = ','
+				}
+            #end for
+
+           #set $artist_sep = ','
+		#end for
+		}
+
+		#raw
+			var cached_albums = [];
+
+			function readAlbums() {
+				var albumcontainer = $('#albums');	
+				var albums = albumcontainer.children('div.album').get();
+				$.each(albums, function(idx, item) {
+					cached_albums.push({ element: item });
+                });
+			}
+
+			function readCacheableProperty(album, name, f) {
+				if (album[name] == undefined) {
+					album[name] = f(album.element);
+				}
+				return album[name];
+			}
+
+			function sort(f) {
+				var albumcontainer = $('#albums');	
+				var albums = albumcontainer.children('div.album').get();
+
+				if (!cached_albums.length) readAlbums();
+				cached_albums.sort(f);
+
+				$.each(cached_albums, function(idx, item) { albumcontainer.append(item.element); });
+			}
+
+			function sortByDate() {
+				function readDate(x) {
+					var s = $.trim($(x).find('p.releasedate').text());
+
+					var numDashes = 2;
+					for (var i = 0; i < s.length; ++i)
+						if (s[i] == '-') --numDashes;
+
+					for (var i = 0; i < numDashes; ++i)
+						s += " 01";
+
+					var dat = new Date(s.replace(/-/g, ' '));
+					return dat
+				}
+
+				sort(function(a, b) {
+					var dateA = readCacheableProperty(a, 'releasedate', readDate);
+					var dateB = readCacheableProperty(b, 'releasedate', readDate);
+
+					return dateA - dateB;
+				});
+			}
+
+			function sortByScrobbles() {
+				function readScrobbles(x) {
+					return $.trim($(x).find('p.times_listened').text());
+				}
+
+				sort(function(a, b) {
+					return readCacheableProperty(b, 'times_listened', readScrobbles) -
+                           readCacheableProperty(a, 'times_listened', readScrobbles); 
+				});
+			}
+
+			function sortByLastFm() {
+				function readListeners(x) {
+					return $.trim($(x).find('p.listeners').text());
+				}
+
+				sort(function(a, b) {
+					return readCacheableProperty(b, 'listeners', readListeners) -
+                           readCacheableProperty(a, 'listeners', readListeners);
+				});
+			}
+		#end raw
+		</script>
+	</head>
+
+	<body>
+		<h1>Albums</h1>
+
+	</body>
+</html>
