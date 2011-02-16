@@ -31,6 +31,7 @@
 					],
 					scrobbles: $artist.scrobbles,
 					listeners: $artist.listeners,
+					clean_name: "$artist.clean_name",
 					genres: [
                         #set genre_sep = ''
 						#for $genre in $artist.genres
@@ -79,7 +80,7 @@
 				var date_str = album.date != "" ? '[' + album.release_date + ']' : '';
 
 				return '<div class="album"><img src="../' + album.cover_filename + '" width="128" height="128" />' +
-				       '<p>' + album.artist_name + ' &#151; ' + album.name + ' ' + date_str + '</p>' +
+				       "<p><a href=\"javascript:historyDisplayArtist('" + album.artist.clean_name + "')\">" + album.artist_name + '</a> &#151; ' + album.name + ' ' + date_str + '</p>' +
 				       '<small>' + artist.genres_str + '</small>' +
 					   '<p><small><em>' + album.scrobbles + ' scrobbles (' + Math.round(album.times_listened * 10) / 10 + ' times), ' + album.artist.listeners + ' listeners.</em></small></p>' +
 					   '<hr />' +
@@ -104,7 +105,7 @@
 
 			function hideAllAlbums() {
 				$('#albums').children('div.album').hide();
-				active_albums = [];
+				active_albums = base_albums = [];
 			}
 
 			function displayAlbum(album) {
@@ -133,10 +134,6 @@
 				});
 
 				base_albums = active_albums;
-			}
-
-			function historyDisplayGenre(clean_name) {
-				$.history.load("genre=" + clean_name);
 			}
 
 			function displayAlbumsExclusive(albums) {
@@ -174,13 +171,41 @@
 				$('#title').text(genre_name + " (" + num_albums + " albums)");
 			}
 
-			function displayArtist(clean_name) {
+			function historyDisplayGenre(clean_name) {
+				$.history.load("genre=" + clean_name);
+			}
 
+
+			function displayArtist(clean_name) {
+				var artist = null;
+				$.each(artists, function(idx, artist_) {
+					if (artist_.clean_name == clean_name) {
+						artist = artist_;
+						return false;
+					}
+				});
+
+				if (!artist) return;
+
+				hideAllAlbums();
+
+				$.each(artist.albums, function(idx, album) {
+					displayAlbum(album);
+				});
+
+				base_albums = active_albums;
+
+				$('#title').text(artist.name);
+			}
+
+			function historyDisplayArtist(clean_name) {
+				$.history.load("artist=" + clean_name);
 			}
 
 			function initializeAlbums() {
 				$.each(artists, function(idx, artist) {
 					artist.genres_str = createGenresHTML(artist);
+					artist.name = idx;
 
 					$.each(artist.albums, function(idx, album) {
 						album.artist = artist;
@@ -194,6 +219,9 @@
 				if (split.length == 2) {
 					if (split[0] == "genre") {
 						displayGenre(split[1]);
+					}
+					else if (split[0] == "artist") {
+						displayArtist(split[1]);
 					}
 				}
 			}
