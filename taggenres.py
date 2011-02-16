@@ -193,6 +193,7 @@ class Genre(object):
 
 class Artist(object):
 	name = None
+	clean_name = None
 	genre_names = []
 	genres = []
 	albums = {}
@@ -229,6 +230,7 @@ def create_artist_list(songs, directory, subdir=None, extract_covers=False):
 		if not artist_name in artists:
 			artist = Artist()
 			artist.name = artist_name
+			artist.clean_name = clean_name(artist_name)
 			artist.genre_names = song["genre"];
 			artist.albums = {}
 

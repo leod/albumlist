@@ -33,7 +33,7 @@ div.album hr {
 }
 
 div.album img {
-	border 1px solid #E3F0F2;
+	border: 1px solid #E3F0F2;
 	margin-right: 20px;
 	float: left;
 }
@@ -60,7 +60,7 @@ a {
 }
 
 h1, h2 {
-	color: #424242;
+	color: #000000;
 	text-align: center;
 	clear: left;
 }
@@ -78,4 +78,4 @@ h1, h2 {
 	width: 25em;
 	margin: 0;
 	padding: 0;
-}*
+}*/

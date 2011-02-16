@@ -7,6 +7,7 @@
 		<link href="../style.css" rel="stylesheet" type="text/css" />
 
 		<script type="text/javascript" src="../jquery-1.4.4.min.js"></script> 
+		<script type="text/javascript" src="../jquery.history.js"></script> 
 		<script type="text/javascript">
 			var artists = {
 			#set $artist_sep = ''
@@ -16,123 +17,213 @@
 					albums: [
 						#set $album_sep = ''
 						#for $album_name, $album in $artist.albums.items()
-								$album_sep
-								{
-									name: #echo "\"" + $album_name.replace("\"", "\\\"") + "\""# ,
-									release_date: "$album.date",
-									cover_filename: "$album.cover_filename",
-									scrobbles: $album.scrobbles,
-									times_listened: $album.times_listened,
-									artist_name: "$artist_name"
-								}
-								#set $album_sep = ','
+							$album_sep
+							{
+								name: #echo "\"" + $album_name.replace("\"", "\\\"") + "\""# ,
+								release_date: "$album.date",
+								cover_filename: "$album.cover_filename",
+								scrobbles: $album.scrobbles,
+								times_listened: $album.times_listened,
+								artist_name: "$artist_name"
+							}
+							#set $album_sep = ','
 						#end for
 					],
 					scrobbles: $artist.scrobbles,
 					listeners: $artist.listeners,
-					genres: $artist.genre_names
+					genres: [
+                        #set genre_sep = ''
+						#for $genre in $artist.genres
+							$genre_sep
+							{
+								name: "$genre.name",
+							    clean_name: "$genre.clean_name"	
+							}
+							#set $genre_sep = ','
+						#end for
+					]
 				}
 			   #set $artist_sep = ','
 			#end for
 			};
 
-			function createAlbumHTML(album) {
-				date_str = album.date != "" ? '[' + album.release_date + ']' : '';
-
-				return '<div class="album"><img src="../' + album.cover_filename + ' width="128" height="128" />' +
-				       '<p>' + album.artist_name + ' &#151; ' + album.name + ' ' + date_str + '</p>' +
-				       '<small>genres</small>' +
-					   '<hr />' +
-				       '</div>'
-			}
-
 			#raw
+			function readDate(s) {
+				var numDashes = 2;
+				for (var i = 0; i < s.length; ++i)
+					if (s[i] == '-') --numDashes;
 
-			$(document).ready(function() {
-				$.each(artists, function(idx, artist) {
-					$.each(artist.albums, function(idx, album) {
-						$('#albums').append(createAlbumHTML(album));
-					});
+				for (var i = 0; i < numDashes; ++i)
+					s += " 01";
+
+				var dat = new Date(s.replace(/-/g, ' '));
+				return dat;
+			}
+			
+			function createGenresHTML(artist) {
+				var genres_str = "[";
+				var genre_sep = "";
+
+				$.each(artist.genres, function(idx, genre) {
+					genres_str += genre_sep;
+					genres_str += "<a href=\"javascript:historyDisplayGenre('" + genre.clean_name + "')\">" + genre.name + '</a>';
+					genre_sep = ", ";
 				});
-			});
+				
+				genres_str += "]";
 
-			var cached_albums = [];
-
-			function readAlbums() {
-				var albumcontainer = $('#albums');	
-				var albums = albumcontainer.children('div.album').get();
-				$.each(albums, function(idx, item) {
-					cached_albums.push({ element: item });
-                });
+				return genres_str;
 			}
 
-			function readCacheableProperty(album, name, f) {
-				if (album[name] == undefined) {
-					album[name] = f(album.element);
-				}
-				return album[name];
+			function createAlbumHTML(album, artist) {
+				var date_str = album.date != "" ? '[' + album.release_date + ']' : '';
+
+				return '<div class="album"><img src="../' + album.cover_filename + '" width="128" height="128" />' +
+				       '<p>' + album.artist_name + ' &#151; ' + album.name + ' ' + date_str + '</p>' +
+				       '<small>' + artist.genres_str + '</small>' +
+					   '<p><small><em>' + album.scrobbles + ' scrobbles (' + Math.round(album.times_listened * 10) / 10 + ' times), ' + album.artist.listeners + ' listeners.</em></small></p>' +
+					   '<hr />' +
+				       '</div>';
 			}
+
+			var active_albums = [];
+			var base_albums = [];
 
 			function sort(f) {
 				var albumcontainer = $('#albums');	
 				var albums = albumcontainer.children('div.album').get();
 
-				if (!cached_albums.length) readAlbums();
-				cached_albums.sort(f);
+				active_albums.sort(f);
 
-				$.each(cached_albums, function(idx, item) { albumcontainer.append(item.element); });
+				$.each(active_albums, function(idx, item) { albumcontainer.append(item.element); });
 			}
 
-			function sortByDate() {
-				function readDate(x) {
-					var s = $.trim($(x).find('p.releasedate').text());
+			function sortByListens() {
+				sort(function(a, b) { return b.times_listened - a.times_listened; });
+			}
 
-					var numDashes = 2;
-					for (var i = 0; i < s.length; ++i)
-						if (s[i] == '-') --numDashes;
+			function hideAllAlbums() {
+				$('#albums').children('div.album').hide();
+				active_albums = [];
+			}
 
-					for (var i = 0; i < numDashes; ++i)
-						s += " 01";
+			function displayAlbum(album) {
+				var albums = $('#albums');
 
-					var dat = new Date(s.replace(/-/g, ' '));
-					return dat
+				if (typeof album.element == 'undefined') {
+					var element = $(createAlbumHTML(album, album.artist));
+					albums.append(element);
+
+					album.release_date_js = readDate(album.release_date);
+					album.element = element;
 				}
 
-				sort(function(a, b) {
-					var dateA = readCacheableProperty(a, 'releasedate', readDate);
-					var dateB = readCacheableProperty(b, 'releasedate', readDate);
+				album.element.show();
+				active_albums.push(album);
+			}
 
-					return dateA - dateB;
+			function displayAllAlbums() {
+				$('#title').text("All albums");	
+
+				active_albums = [];
+				$.each(artists, function(idx, artist) {
+					$.each(artist.albums, function(idx, album) {
+						displayAlbum(album);	
+					});
+				});
+
+				base_albums = active_albums;
+			}
+
+			function historyDisplayGenre(clean_name) {
+				$.history.load("genre=" + clean_name);
+			}
+
+			function displayAlbumsExclusive(albums) {
+				hideAllAlbums();
+				$.each(albums, function(idx, album) {
+					displayAlbum(album);
 				});
 			}
 
-			function sortByScrobbles() {
-				function readScrobbles(x) {
-					return $.trim($(x).find('p.times_listened').text());
-				}
+			function displayGenre(clean_name) {
+				hideAllAlbums();
 
-				sort(function(a, b) {
-					return readCacheableProperty(b, 'times_listened', readScrobbles) -
-                           readCacheableProperty(a, 'times_listened', readScrobbles); 
+				var genre_name = "";
+				var num_albums = 0;
+
+				$.each(artists, function(idx, artist) {
+					var hasGenre = false;
+					$.each(artist.genres, function(idx, genre) {
+						if (genre.clean_name == clean_name) {
+							hasGenre = true;
+							genre_name = genre.name;
+						}
+					});
+
+					if (!hasGenre) return;
+
+					$.each(artist.albums, function(idx, album) {
+						displayAlbum(album);
+						++num_albums;
+					});
+				});
+
+				base_albums = active_albums;
+
+				$('#title').text(genre_name + " (" + num_albums + " albums)");
+			}
+
+			function displayArtist(clean_name) {
+
+			}
+
+			function initializeAlbums() {
+				$.each(artists, function(idx, artist) {
+					artist.genres_str = createGenresHTML(artist);
+
+					$.each(artist.albums, function(idx, album) {
+						album.artist = artist;
+					});
 				});
 			}
 
-			function sortByLastFm() {
-				function readListeners(x) {
-					return $.trim($(x).find('p.listeners').text());
+			function loadContent(hash) {
+				split = hash.split("=");
+				
+				if (split.length == 2) {
+					if (split[0] == "genre") {
+						displayGenre(split[1]);
+					}
 				}
-
-				sort(function(a, b) {
-					return readCacheableProperty(b, 'listeners', readListeners) -
-                           readCacheableProperty(a, 'listeners', readListeners);
-				});
 			}
+
+			$(document).ready(function() {
+				initializeAlbums();
+				hideAllAlbums();
+
+				$.history.init(loadContent);
+			});
 		#end raw
 		</script>
 	</head>
 
 	<body>
 		<h1>Albums</h1>
+
+		<h2>Genres</h2>
+        <ul id="genres">
+			<li><a href="javascript:displayAllAlbums()" class="tag9">All</a></li>
+            #for $genre in sorted($genres.keys())
+                <li>
+                    <a href="javascript:historyDisplayGenre('$genres[$genre].clean_name')" class="tag$genres[$genre].weight" title="$genre: $genres[$genre].num_albums albums">$genre</a>
+                </li>
+            #end for
+        </ul>
+
+		<h2 id="title"></h2>
+		<p>Sort by <a href="javascript:sortByListens()">number of listens</a>.</p>
+
 		<div id="albums">
 
 		</div>
